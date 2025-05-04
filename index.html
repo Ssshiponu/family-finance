@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>আয় ব্যায়</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js via CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Font for consistent typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Custom styles -->
+    <style>
+        [x-cloak] { display: none !important; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: white;
+            color: black;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn {
+            transition: all 0.2s ease;
+            border-radius: 0.375rem;
+            padding: 0.625rem 1.25rem;
+            background-color: #fafafa;
+            color: black;
+            font-weight: 500;
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .btn:hover {
+            background-color: #f0f0f0;
+        }
+        .btn:active {
+            transform: translateY(1px);
+        }
+        .table-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background-color: white;
+        }
+        .tbl-row {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .tbl-row:last-child {
+            border-bottom: none;
+        }
+        .tbl-row:hover {
+            background-color: #fafafa;
+        }
+        @media (max-width: 640px) {
+            .container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            .account-card {
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+            .tbl-row {
+                padding: 0.875rem;
+            }
+        }
+        .account-card {
+            transition: transform 0.2s ease;
+            height: 100%;
+        }
+        .account-card:active {
+            transform: scale(0.98);
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            transition: border-color 0.2s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #9ca3af;
+            box-shadow: 0 0 0 1px #9ca3af;
+        }
+    </style>
+</head>
+<body class="text-black">
+    <div x-data="financeApp()" x-cloak class="min-h-screen bg-white max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="border-b border-gray-200 sticky top-0 bg-white z-10">
+            <div class="container mx-auto px-4 py-4">
+                <div class="flex justify-between items-center">
+                    <h1 class="text-xl sm:text-2xl font-semibold">আয় ব্যায়</h1>
+                    
+                    <div class="flex items-center gap-2">
+                        <!-- Cloud Sync Status -->
+                        <div x-show="cloudSync.isLoggedIn" class="flex items-center text-sm mr-3">
+                            <span x-show="cloudSync.lastSynced" class="text-gray-600 mr-2 hidden sm:inline">
+                                Last sync: <span x-text="cloudSync.lastSynced ? cloudSync.lastSynced.toLocaleTimeString() : ''"></span>
+                            </span>
+                            <button 
+                                @click="syncToCloud()" 
+                                class="text-gray-700 hover:text-black px-2 py-1 rounded flex items-center" 
+                                :disabled="cloudSync.isSyncing"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                                <span x-show="!cloudSync.isSyncing" class="hidden sm:inline">মেঘে সংরক্ষণ</span>
+                                <span x-show="cloudSync.isSyncing" class="hidden sm:inline">সিঙ্ক হচ্ছে...</span>
+                            </button>
+                            <button 
+                                @click="signOut()" 
+                                class="text-gray-700 hover:text-black px-2 py-1 rounded ml-1"
+                                title="সাইন আউট"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <button 
+                            x-show="!cloudSync.isLoggedIn" 
+                            @click="cloudSync.showAuthModal = true" 
+                            class="text-gray-700 hover:text-black px-2 py-1 rounded border border-gray-300 flex items-center mr-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                            </svg>
+                            <span class="hidden sm:inline">মেঘে সংরক্ষণ</span>
+                        </button>
+                        
+                        <!-- Add Account Button -->
+                        <button @click="showAddAccountModal = true" class="btn flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            <span>নতুন হিসাব</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4 py-4 sm:py-8">
+            <!-- Accounts List -->
+            <div x-show="selectedAccount == null" class="space-y-6">
+                <h2 class="text-xl font-medium mb-3 sm:mb-4">আপনার হিসাবসমূহ</h2>
+                
+                <div x-show="accounts.length === 0" class="text-gray-500 text-center py-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>কোনো হিসাব নেই </p>
+                </div>
+                
+                <div x-show="accounts.length > 0 && selectedAccount == null" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <template x-for="(account, index) in accounts" :key="index">
+                        <div @click="selectAccount(index)" class="account-card border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-all">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-lg font-medium" x-text="account.name"></h3>
+                                <span class="text-sm" x-text="'তৈরি: ' + formatDate(account.createdAt)"></span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <div>
+                                    <p class="text-gray-600">আয়</p>
+                                    <p class="font-medium" x-text="formatCurrency(calculateTotal(account.transactions.income))"></p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600">ব্যয়</p>
+                                    <p class="font-medium" x-text="formatCurrency(calculateTotal(account.transactions.expenses))"></p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600">ব্যালেন্স</p>
+                                    <p class="font-medium" x-text="formatCurrency(calculateTotal(account.transactions.income) - calculateTotal(account.transactions.expenses))"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Account Details -->
+            <div x-show="selectedAccount !== null" class="space-y-8">
+                <div class="flex justify-between items-center">
+                    <button @click="selectedAccount = null" class="btn flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        ফিরে যান
+                    </button>
+                    <div x-data="{ dropdownOpen: false }" class="relative">
+                        <button @click="dropdownOpen = !dropdownOpen" class="btn p-3 border-gray-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
+                        </button>
+                        
+                        <div x-show="dropdownOpen" @click.away="dropdownOpen = false" class="absolute right-0 mt-2 py-2 w-48 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                            <button @click="exportPDF(); dropdownOpen = false" class="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                ডাউনলোড PDF
+                            </button>
+                            <button @click="showDeleteAccountConfirm = true; dropdownOpen = false" class="w-full text-left block px-4 py-2 text-sm text-red-500 hover:bg-gray-100">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                মুছুন
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <h2 class="text-2xl font-medium truncate" x-text="getCurrentAccount().name"></h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                    <!-- Income Table -->
+                    <div class="mb-12">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">আয়সমূহ</h3>
+                            <button @click="openAddTransactionModal('income')" class="btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                যোগ করুন
+                            </button>
+                        </div>
+                        
+                        <div class="table-container">
+                            <div x-show="getCurrentAccount().transactions.income.length === 0" class="py-8 text-center text-gray-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-8-6h16" />
+                                </svg>
+                                <p>এখনও কোনও আয় লেনদেন নেই</p>
+                            </div>
+                            
+                            <template x-for="(transaction, idx) in getCurrentAccount().transactions.income" :key="idx">
+                                <div class="flex justify-between p-3">
+                                    <div>
+                                        <div x-text="transaction.name" class="font-medium"></div>
+                                        <div x-show="transaction.date" x-text="formatDate(transaction.date)" class="text-xs text-gray-500 mt-1"></div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <div x-text="formatCurrency(transaction.amount)" class="font-medium text-right"></div>
+                                        <button @click="confirmDeleteTransaction('income', idx)" class="p-1 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <div x-show="getCurrentAccount().transactions.income.length > 0" class="flex justify-between p-3 bg-gray-100">
+                                <div class="font-semibold text-gray-900">মোট</div>
+                                <div x-text="formatCurrency(calculateTotal(getCurrentAccount().transactions.income))" class="font-semibold text-right text-gray-900"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Expenses Table -->
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">ব্যয়সমূহ</h3>
+                            <button @click="openAddTransactionModal('expenses')" class="btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                যোগ করুন
+                            </button>
+                        </div>
+                        
+                        <div class="table-container">
+                            <div x-show="getCurrentAccount().transactions.expenses.length === 0" class="py-8 text-center text-gray-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-8-6h16" />
+                                </svg>
+                                <p>এখনও কোনও ব্যয় লেনদেন নেই</p>
+                            </div>
+                            
+                            <template x-for="(transaction, idx) in getCurrentAccount().transactions.expenses" :key="idx">
+                                <div class="flex justify-between p-3">
+                                    <div class="flex-1">
+                                        <div x-text="transaction.name" class="font-medium"></div>
+                                        <div x-show="transaction.date" x-text="formatDate(transaction.date)" class="text-xs text-gray-500 mt-1"></div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <div x-text="formatCurrency(transaction.amount)" class="font-medium text-right"></div>
+                                        <button @click="confirmDeleteTransaction('expenses', idx)" class="p-1 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <div x-show="getCurrentAccount().transactions.expenses.length > 0" class="flex justify-between p-3 bg-gray-100">
+                                <div class="font-medium text-gray-900">মোট</div>
+                                <div x-text="formatCurrency(calculateTotal(getCurrentAccount().transactions.expenses))" class="font-medium text-gray-900"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Balance -->
+                <div class="border border-gray-200 rounded-lg p-5 sm:p-6 text-center shadow-sm">
+                    <h3 class="text-lg font-medium mb-2">বর্তমান ব্যালেন্স</h3>
+                    <p class="text-3xl font-bold" x-text="formatCurrency(calculateTotal(getCurrentAccount().transactions.income) - calculateTotal(getCurrentAccount().transactions.expenses))"></p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Add Account Modal -->
+        <div x-show="showAddAccountModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="showAddAccountModal = false">
+            <div class="bg-white rounded-lg p-5 sm:p-6 w-full max-w-md mx-4 sm:mx-auto">
+                <h2 class="text-xl font-medium mb-4">নতুন অ্যাকাউন্ট যোগ করুন</h2>
+                <form @submit.prevent="addAccount">
+                    <div class="mb-4">
+                        <label for="accountName" class="block text-gray-700 mb-2">অ্যাকাউন্টের নাম</label>
+                        <input type="text" id="accountName" x-model="newAccount.name" class="form-input" required>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" @click="showAddAccountModal = false" class="btn">বাতিল</button>
+                        <button type="submit" class="btn bg-gray-900 text-white hover:bg-gray-800">যোগ করুন</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Transaction Modal -->
+        <div x-show="showAddTransactionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="showAddTransactionModal = false">
+            <div class="bg-white rounded-lg p-5 sm:p-6 w-full max-w-md mx-4 sm:mx-auto">
+                <h2 class="text-xl font-medium mb-4" x-text="'যোগ করুন ' + (transactionType === 'income' ? 'আয়' : 'ব্যয়')"></h2>
+                <form @submit.prevent="addTransaction">
+                    <div class="mb-4">
+                        <label for="transactionName" class="block text-gray-700 mb-2">লেনদেনের নাম</label>
+                        <input type="text" id="transactionName" x-model="newTransaction.name" class="form-input" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="transactionAmount" class="block text-gray-700 mb-2">পরিমাণ (BDT)</label>
+                        <input type="number" id="transactionAmount" x-model="newTransaction.amount" min="0" step="0.01" class="form-input" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="transactionDate" class="block text-gray-700 mb-2">তারিখ (ঐচ্ছিক)</label>
+                        <input type="date" id="transactionDate" x-model="newTransaction.date" class="form-input">
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" @click="showAddTransactionModal = false" class="btn">বাতিল</button>
+                        <button type="submit" class="btn bg-gray-900 text-white hover:bg-gray-800">লেনদেন যোগ করুন</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Delete Account Confirmation Modal -->
+        <div x-show="showDeleteAccountConfirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="showDeleteAccountConfirm = false">
+            <div class="bg-white rounded-lg p-5 sm:p-6 w-full max-w-md mx-4 sm:mx-auto">
+                <h2 class="text-xl font-medium mb-2">অ্যাকাউন্ট মুছুন</h2>
+                <p class="mb-4 text-gray-600">আপনি কি নিশ্চিত যে আপনি এই অ্যাকাউন্টটি মুছতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</p>
+                <div class="flex justify-end gap-2">
+                    <button @click="showDeleteAccountConfirm = false" class="btn">বাতিল</button>
+                    <button @click="deleteAccount()" class="btn bg-gray-900 text-white hover:bg-gray-800">মুছুন</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Delete Transaction Confirmation Modal -->
+        <div x-show="deleteTransactionConfirm.show" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="cancelDeleteTransaction()">
+            <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                <h2 class="text-xl font-semibold mb-4">লেনদেন মুছে ফেলবেন?</h2>
+                <p class="mb-4">আপনি কি নিশ্চিত যে আপনি এই লেনদেনটি মুছে ফেলতে চান?</p>
+                <div class="flex justify-end space-x-3">
+                    <button @click="cancelDeleteTransaction()" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded">
+                        বাতিল
+                    </button>
+                    <button @click="removeTransaction()" class="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded">
+                        মুছে ফেলুন
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Cloud Auth Modal -->
+        <div x-show="cloudSync.showAuthModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">মেঘ সংযোগ</h2>
+                    <button @click="cloudSync.showAuthModal = false" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div x-show="cloudSync.error" class="mb-4 p-3 bg-red-100 text-red-700 rounded">
+                    <p x-text="cloudSync.error"></p>
+                </div>
+                
+                <div class="mb-6">
+                    <p class="mb-2">আপনার ডেটা মেঘে সংরক্ষণ করে যে কোন ডিভাইস থেকে অ্যাক্সেস করুন।</p>
+                </div>
+                
+                <form @submit.prevent="signInWithEmail()" class="mb-4">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">ইমেইল</label>
+                        <input 
+                            type="email" 
+                            x-model="cloudSync.email" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500" 
+                            required
+                        >
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">পাসওয়ার্ড</label>
+                        <input 
+                            type="password" 
+                            x-model="cloudSync.password" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500" 
+                            required
+                        >
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <button 
+                            type="submit" 
+                            class="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 focus:outline-none"
+                            :disabled="cloudSync.isSyncing"
+                        >
+                            <span x-show="!cloudSync.isSyncing">সাইন ইন / সাইন আপ</span>
+                            <span x-show="cloudSync.isSyncing">অপেক্ষা করুন...</span>
+                        </button>
+                        <button 
+                            type="button" 
+                            @click="signInAnonymously()" 
+                            class="text-gray-600 hover:text-gray-800"
+                            :disabled="cloudSync.isSyncing"
+                        >
+                            অতিথি হিসাবে ব্যবহার করুন
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="text-sm text-gray-600 mt-4">
+                    <p>* অ্যাকাউন্ট না থাকলে, নতুন অ্যাকাউন্ট তৈরি করা হবে।</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXQRBhL8x3UgQoKmg3K4DGBQGjB5JxOqk",
+            authDomain: "finance-tracker-app-9a5e2.firebaseapp.com",
+            projectId: "finance-tracker-app-9a5e2",
+            storageBucket: "finance-tracker-app-9a5e2.appspot.com",
+            messagingSenderId: "328619421973",
+            appId: "1:328619421973:web:3bdf6ccad7f1a26ec93b3c"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
+        function financeApp() {
+            return {
+                accounts: [],
+                selectedAccount: null,
+                showAddAccountModal: false,
+                showAddTransactionModal: false,
+                showDeleteAccountConfirm: false,
+                
+                // Cloud sync state
+                cloudSync: {
+                    user: null,
+                    isLoggedIn: false,
+                    isAnonymous: true,
+                    isSyncing: false,
+                    lastSynced: null,
+                    showAuthModal: false,
+                    email: '',
+                    password: '',
+                    error: null
+                },
+                transactionType: 'income',
+                newAccount: {
+                    name: '',
+                },
+                newTransaction: {
+                    name: '',
+                    amount: '',
+                    date: ''
+                },
+                
+                init() {
+                    this.loadAccounts();
+                    this.initCloudAuth();
+                },
+                
+                // Initialize Firebase Authentication
+                initCloudAuth() {
+                    // Check if user is already signed in
+                    auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            this.cloudSync.user = user;
+                            this.cloudSync.isLoggedIn = true;
+                            this.cloudSync.isAnonymous = user.isAnonymous;
+                            this.syncFromCloud();
+                        }
+                    });
+                },
+                
+                // Sign in anonymously for guest mode
+                signInAnonymously() {
+                    this.cloudSync.isSyncing = true;
+                    this.cloudSync.error = null;
+                    
+                    auth.signInAnonymously()
+                        .then((userCredential) => {
+                            this.cloudSync.user = userCredential.user;
+                            this.cloudSync.isLoggedIn = true;
+                            this.cloudSync.isAnonymous = true;
+                            this.syncToCloud();
+                        })
+                        .catch((error) => {
+                            this.cloudSync.error = `Error: ${error.message}`;
+                        })
+                        .finally(() => {
+                            this.cloudSync.isSyncing = false;
+                        });
+                },
+                
+                // Sign in with email and password
+                signInWithEmail() {
+                    if (!this.cloudSync.email || !this.cloudSync.password) {
+                        this.cloudSync.error = 'Please enter email and password';
+                        return;
+                    }
+                    
+                    this.cloudSync.isSyncing = true;
+                    this.cloudSync.error = null;
+                    
+                    auth.signInWithEmailAndPassword(this.cloudSync.email, this.cloudSync.password)
+                        .then((userCredential) => {
+                            this.cloudSync.user = userCredential.user;
+                            this.cloudSync.isLoggedIn = true;
+                            this.cloudSync.isAnonymous = false;
+                            this.cloudSync.showAuthModal = false;
+                            this.syncFromCloud();
+                        })
+                        .catch((error) => {
+                            if (error.code === 'auth/user-not-found') {
+                                // Create new user if not found
+                                this.createUserWithEmail();
+                            } else {
+                                this.cloudSync.error = `Error: ${error.message}`;
+                                this.cloudSync.isSyncing = false;
+                            }
+                        });
+                },
+                
+                // Create new user with email and password
+                createUserWithEmail() {
+                    auth.createUserWithEmailAndPassword(this.cloudSync.email, this.cloudSync.password)
+                        .then((userCredential) => {
+                            this.cloudSync.user = userCredential.user;
+                            this.cloudSync.isLoggedIn = true;
+                            this.cloudSync.isAnonymous = false;
+                            this.cloudSync.showAuthModal = false;
+                            this.syncToCloud();
+                        })
+                        .catch((error) => {
+                            this.cloudSync.error = `Error: ${error.message}`;
+                        })
+                        .finally(() => {
+                            this.cloudSync.isSyncing = false;
+                        });
+                },
+                
+                // Sign out
+                signOut() {
+                    auth.signOut()
+                        .then(() => {
+                            this.cloudSync.user = null;
+                            this.cloudSync.isLoggedIn = false;
+                            this.cloudSync.isAnonymous = true;
+                            this.cloudSync.lastSynced = null;
+                        })
+                        .catch((error) => {
+                            console.error('Sign out error:', error);
+                        });
+                },
+                
+                loadAccounts() {
+                    const savedAccounts = localStorage.getItem('financeAccounts');
+                    if (savedAccounts) {
+                        this.accounts = JSON.parse(savedAccounts);
+                    }
+                },
+                
+                saveAccounts() {
+                    // Save to localStorage
+                    localStorage.setItem('financeAccounts', JSON.stringify(this.accounts));
+                    
+                    // If logged in, save to cloud
+                    if (this.cloudSync.isLoggedIn) {
+                        this.syncToCloud();
+                    }
+                },
+                
+                // Sync data to Firebase Cloud
+                syncToCloud() {
+                    if (!this.cloudSync.user) return;
+                    
+                    this.cloudSync.isSyncing = true;
+                    
+                    db.collection('users').doc(this.cloudSync.user.uid).set({
+                        accounts: this.accounts,
+                        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                    })
+                    .then(() => {
+                        this.cloudSync.lastSynced = new Date();
+                        console.log('Data successfully synced to cloud!');
+                    })
+                    .catch((error) => {
+                        console.error('Error syncing to cloud:', error);
+                    })
+                    .finally(() => {
+                        this.cloudSync.isSyncing = false;
+                    });
+                },
+                
+                // Sync data from Firebase Cloud
+                syncFromCloud() {
+                    if (!this.cloudSync.user) return;
+                    
+                    this.cloudSync.isSyncing = true;
+                    
+                    db.collection('users').doc(this.cloudSync.user.uid).get()
+                    .then((doc) => {
+                        if (doc.exists && doc.data().accounts) {
+                            // Merge cloud data with local data
+                            this.accounts = doc.data().accounts;
+                            localStorage.setItem('financeAccounts', JSON.stringify(this.accounts));
+                            this.cloudSync.lastSynced = new Date();
+                            console.log('Data successfully retrieved from cloud!');
+                        } else {
+                            // No data in cloud yet, upload local data
+                            this.syncToCloud();
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error getting data from cloud:', error);
+                    })
+                    .finally(() => {
+                        this.cloudSync.isSyncing = false;
+                    });
+                },
+                
+                addAccount() {
+                    this.accounts.push({
+                        name: this.newAccount.name,
+                        createdAt: new Date().toISOString(),
+                        transactions: {
+                            income: [],
+                            expenses: []
+                        }
+                    });
+                    
+                    this.saveAccounts();
+                    this.newAccount.name = '';
+                    this.showAddAccountModal = false;
+                },
+                
+                selectAccount(index) {
+                    this.selectedAccount = index;
+                },
+                
+                getCurrentAccount() {
+                    if (this.selectedAccount !== null && this.accounts[this.selectedAccount]) {
+                        return this.accounts[this.selectedAccount];
+                    }
+                    return { name: '', transactions: { income: [], expenses: [] } };
+                },
+                
+                openAddTransactionModal(type) {
+                    this.transactionType = type;
+                    this.newTransaction = {
+                        name: '',
+                        amount: '',
+                        date: ''
+                    };
+                    this.showAddTransactionModal = true;
+                },
+                
+                addTransaction() {
+                    const transaction = {
+                        name: this.newTransaction.name,
+                        amount: parseFloat(this.newTransaction.amount),
+                        date: this.newTransaction.date ? new Date(this.newTransaction.date).toISOString() : null
+                    };
+                    
+                    this.accounts[this.selectedAccount].transactions[this.transactionType].push(transaction);
+                    this.saveAccounts();
+                    this.showAddTransactionModal = false;
+                },
+                
+                // Track which transaction is being considered for deletion
+                deleteTransactionConfirm: {
+                    show: false,
+                    type: null,
+                    index: null
+                },
+                
+                // Show confirmation dialog for transaction deletion
+                confirmDeleteTransaction(type, index) {
+                    this.deleteTransactionConfirm = {
+                        show: true,
+                        type: type,
+                        index: index
+                    };
+                },
+                
+                // Cancel transaction deletion
+                cancelDeleteTransaction() {
+                    this.deleteTransactionConfirm = {
+                        show: false,
+                        type: null,
+                        index: null
+                    };
+                },
+                
+                // Confirm and execute transaction deletion
+                removeTransaction() {
+                    const { type, index } = this.deleteTransactionConfirm;
+                    if (type !== null && index !== null) {
+                        this.accounts[this.selectedAccount].transactions[type].splice(index, 1);
+                        this.saveAccounts();
+                    }
+                    this.cancelDeleteTransaction();
+                },
+                
+                deleteAccount() {
+                    this.accounts.splice(this.selectedAccount, 1);
+                    this.saveAccounts();
+                    this.selectedAccount = null;
+                    this.showDeleteAccountConfirm = false;
+                },
+                
+                calculateTotal(transactions) {
+                    return transactions.reduce((total, transaction) => total + transaction.amount, 0);
+                },
+                
+                formatCurrency(amount) {
+                    return new Intl.NumberFormat('bn-BD', {
+                        style: 'currency',
+                        currency: 'BDT',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2
+                    }).format(amount);
+                },
+                
+                formatDate(dateString) {
+                    if (!dateString) return '';
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    });
+                },
+                
+                exportPDF() {
+                    // First, load jspdf and html2canvas directly from CDN
+                    this.loadScripts([
+                        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+                        'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+                    ], () => this.generatePDFContent());
+                },
+                
+                loadScripts(urls, callback) {
+                    let loadedCount = 0;
+                    
+                    urls.forEach(url => {
+                        const script = document.createElement('script');
+                        script.src = url;
+                        script.onload = () => {
+                            loadedCount++;
+                            if (loadedCount === urls.length) {
+                                callback();
+                            }
+                        };
+                        document.head.appendChild(script);
+                    });
+                },
+                
+                generatePDFContent() {
+                    const account = this.getCurrentAccount();
+                    if (!account) return;
+                    
+                    // Create a visible element with proper styling
+                    const element = document.createElement('div');
+                    element.id = 'pdf-export-container';
+                    element.style.position = 'fixed';
+                    element.style.top = '0';
+                    element.style.left = '0';
+                    element.style.width = '210mm';  // A4 width
+                    element.style.padding = '10mm';
+                    element.style.backgroundColor = 'white';
+                    element.style.zIndex = '-9999';
+                    element.style.fontFamily = 'Arial, sans-serif';
+                    
+                    const incomeTotal = this.calculateTotal(account.transactions.income);
+                    const expenseTotal = this.calculateTotal(account.transactions.expenses);
+                    const balance = incomeTotal - expenseTotal;
+                    
+                    element.innerHTML = `
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <h1 style="font-size: 24px; margin-bottom: 5px;">${account.name}</h1>
+                            <p style="font-size: 14px; color: #666;">রিপোর্ট তৈরি: ${new Date().toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})}</p>
+                        </div>
+                        
+                        <div style="margin-bottom: 30px;">
+                            <h2 style="font-size: 18px; padding-bottom: 5px; border-bottom: 1px solid #ddd;">আয়সমূহ</h2>
+                            ${this.generatePDFTable(account.transactions.income)}
+                        </div>
+                        
+                        <div style="margin-bottom: 30px;">
+                            <h2 style="font-size: 18px; padding-bottom: 5px; border-bottom: 1px solid #ddd;">ব্যয়সমূহ</h2>
+                            ${this.generatePDFTable(account.transactions.expenses)}
+                        </div>
+                        
+                        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 30px;">
+                            <h3 style="margin-top: 0; margin-bottom: 10px;">সারসংক্ষেপ</h3>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>মোট আয়:</span>
+                                <span style="font-weight: bold;">${this.formatCurrency(incomeTotal)}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>মোট ব্যয়:</span>
+                                <span style="font-weight: bold;">${this.formatCurrency(expenseTotal)}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>বর্তমান ব্যালেন্স:</span>
+                                <span style="font-weight: bold;">${this.formatCurrency(balance)}</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(element);
+                    
+                    // Give the browser a moment to render the content
+                    setTimeout(() => {
+                        this.captureAndGeneratePDF(element, account.name);
+                    }, 500);
+                },
+                
+                generatePDFTable(transactions) {
+                    if (!transactions || transactions.length === 0) {
+                        return '<p style="text-align: center; color: #666;">কোনো লেনদেন পাওয়া যায়নি</p>';
+                    }
+                    
+                    const total = this.calculateTotal(transactions);
+                    
+                    let tableHTML = `
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #ddd;">
+                            <thead>
+                                <tr>
+                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd; background-color: #f5f5f5;">নাম</th>
+                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd; background-color: #f5f5f5;">তারিখ</th>
+                                    <th style="padding: 8px; text-align: right; border: 1px solid #ddd; background-color: #f5f5f5;">পরিমাণ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    transactions.forEach(transaction => {
+                        tableHTML += `
+                            <tr>
+                                <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${transaction.name}</td>
+                                <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${transaction.date ? this.formatDate(transaction.date) : '-'}</td>
+                                <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">${this.formatCurrency(transaction.amount)}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    tableHTML += `
+                            <tr style="font-weight: bold;">
+                                <td colspan="2" style="padding: 8px; text-align: left; border: 1px solid #ddd; background-color: #f5f5f5;">মোট</td>
+                                <td style="padding: 8px; text-align: right; border: 1px solid #ddd; background-color: #f5f5f5;">${this.formatCurrency(total)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    `;
+                    
+                    return tableHTML;
+                },
+                
+                captureAndGeneratePDF(element, filename) {
+                    // Use html2canvas to capture the element
+                    html2canvas(element, {
+                        scale: 2,
+                        useCORS: true,
+                        logging: false,
+                        backgroundColor: '#ffffff'
+                    }).then(canvas => {
+                        // Create PDF document
+                        const pdf = new jspdf.jsPDF({
+                            orientation: 'portrait',
+                            unit: 'mm',
+                            format: 'a4'
+                        });
+                        
+                        // Canvas dimensions
+                        const imgWidth = 190; // A4 width in mm minus margins
+                        const imgHeight = canvas.height * imgWidth / canvas.width;
+                        
+                        // Add the image to the PDF
+                        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                        pdf.addImage(imgData, 'JPEG', 10, 10, imgWidth, imgHeight);
+                        
+                        // Save the PDF
+                        pdf.save(`${filename}_report.pdf`);
+                        
+                        // Clean up
+                        document.body.removeChild(element);
+                    });
+                },
+                
+                generateTransactionTable(transactions) {
+                    if (!transactions || transactions.length === 0) {
+                        return '<p>No transactions found.</p>';
+                    }
+                    
+                    let tableHTML = `
+                        <table class="transaction-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Date</th>
+                                    <th class="amount">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    transactions.forEach(transaction => {
+                        tableHTML += `
+                            <tr>
+                                <td>${transaction.name}</td>
+                                <td>${transaction.date ? this.formatDate(transaction.date) : '-'}</td>
+                                <td class="amount">${this.formatCurrency(transaction.amount)}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    const total = this.calculateTotal(transactions);
+                    tableHTML += `
+                            <tr class="total-row">
+                                <td colspan="2">মোট</td>
+                                <td class="amount">${this.formatCurrency(total)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    `;
+                    
+                    return tableHTML;
+                },
+                
+                generatePDF(element, filename) {
+                    const options = {
+                        margin: 10,
+                        filename: `${filename}_report.pdf`,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2 },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    };
+                    
+                    // Generate and download PDF
+                    html2pdf().from(element).set(options).save().then(() => {
+                        // Remove the element after PDF generation
+                        document.body.removeChild(element);
+                    });
+                }
+            };
+        }
+    </script>
+</body>
+</html>
