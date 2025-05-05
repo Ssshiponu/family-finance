@@ -288,12 +288,7 @@ function financeApp() {
         },
         
         formatCurrency(amount) {
-            return new Intl.NumberFormat('bn-BD', {
-                style: 'currency',
-                currency: 'BDT',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 2
-            }).format(amount);
+            return amount + ' ৳'
         },
         
         formatDate(dateString) {
@@ -353,31 +348,31 @@ function financeApp() {
             element.innerHTML = `
                 <div style="text-align: center; margin-bottom: 20px;">
                     <h1 style="font-size: 24px; margin-bottom: 5px;">${account.name}</h1>
-                    <p style="font-size: 14px; color: #666;">রিপোর্ট তৈরি: ${new Date().toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})}</p>
+                    <p style="font-size: 14px; color: #666;">Report Created: ${new Date().toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})}</p>
                 </div>
                 
                 <div style="margin-bottom: 30px;">
-                    <h2 style="font-size: 18px; padding-bottom: 5px; border-bottom: 1px solid #ddd;">আয়সমূহ</h2>
+                    <h2 style="font-size: 18px; padding-bottom: 5px; border-bottom: 1px solid #ddd;">Incomes</h2>
                     ${this.generatePDFTable(account.transactions.income)}
                 </div>
                 
                 <div style="margin-bottom: 30px;">
-                    <h2 style="font-size: 18px; padding-bottom: 5px; border-bottom: 1px solid #ddd;">ব্যয়সমূহ</h2>
+                    <h2 style="font-size: 18px; padding-bottom: 5px; border-bottom: 1px solid #ddd;">Expences</h2>
                     ${this.generatePDFTable(account.transactions.expenses)}
                 </div>
                 
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 30px;">
-                    <h3 style="margin-top: 0; margin-bottom: 10px;">সারসংক্ষেপ</h3>
+                    <h3 style="margin-top: 0; margin-bottom: 10px;">Summary</h3>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span>মোট আয়:</span>
+                        <span>Tottal Income:</span>
                         <span style="font-weight: bold;">${this.formatCurrency(incomeTotal)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span>মোট ব্যয়:</span>
+                        <span>Tottal Expence:</span>
                         <span style="font-weight: bold;">${this.formatCurrency(expenseTotal)}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span>বর্তমান ব্যালেন্স:</span>
+                        <span>Balance:</span>
                         <span style="font-weight: bold;">${this.formatCurrency(balance)}</span>
                     </div>
                 </div>
@@ -393,7 +388,7 @@ function financeApp() {
         
         generatePDFTable(transactions) {
             if (!transactions || transactions.length === 0) {
-                return '<p style="text-align: center; color: #666;">কোনো লেনদেন পাওয়া যায়নি</p>';
+                return '<p style="text-align: center; color: #666;">No Tranjection</p>';
             }
             
             const total = this.calculateTotal(transactions);
@@ -402,9 +397,9 @@ function financeApp() {
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #ddd;">
                     <thead>
                         <tr>
-                            <th style="padding: 8px; text-align: left; border: 1px solid #ddd; background-color: #f5f5f5;">নাম</th>
-                            <th style="padding: 8px; text-align: left; border: 1px solid #ddd; background-color: #f5f5f5;">তারিখ</th>
-                            <th style="padding: 8px; text-align: right; border: 1px solid #ddd; background-color: #f5f5f5;">পরিমাণ</th>
+                            <th style="padding: 8px; text-align: left; border: 1px solid #ddd; background-color: #f5f5f5;">Name</th>
+                            <th style="padding: 8px; text-align: left; border: 1px solid #ddd; background-color: #f5f5f5;">Date</th>
+                            <th style="padding: 8px; text-align: right; border: 1px solid #ddd; background-color: #f5f5f5;">Amount</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -465,7 +460,7 @@ function financeApp() {
         
         generateTransactionTable(transactions) {
             if (!transactions || transactions.length === 0) {
-                return '<p>No transactions found.</p>';
+                return '<p>No transaction</p>';
             }
             
             let tableHTML = `
@@ -493,7 +488,7 @@ function financeApp() {
             const total = this.calculateTotal(transactions);
             tableHTML += `
                     <tr class="total-row">
-                        <td colspan="2">মোট</td>
+                        <td colspan="2">Tottal</td>
                         <td class="amount">${this.formatCurrency(total)}</td>
                     </tr>
                 </tbody>

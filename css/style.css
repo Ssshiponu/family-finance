@@ -8,17 +8,18 @@ body {
 .btn {
     transition: all 0.2s ease;
     border-radius: 0.375rem;
-    padding: 0.625rem 1.25rem;
-    background-color: #fafafa;
-    color: black;
-    font-weight: 500;
+    padding: 0.5rem 1rem;
+    font-weight: 400;
+    color: hsl(0, 0, 30);
+    background-color: hsl(0, 0, 70);
     touch-action: manipulation;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
 }
 .btn:hover {
-    background-color: #f0f0f0;
+    color: black;
+    background-color: #eee;
 }
 .btn:active {
     transform: translateY(1px);
